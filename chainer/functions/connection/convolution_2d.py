@@ -40,7 +40,8 @@ class Convolution2DFunction(function.Function):
         type_check.expect(
             x_type.dtype == numpy.float32,
             w_type.dtype == numpy.float32,
-            x_type.ndim == 4,
+            x_type.ndim >= 2,
+            x_type.ndim <= 4,
             w_type.ndim == 4,
             x_type.shape[1] == w_type.shape[1],
         )
@@ -56,7 +57,9 @@ class Convolution2DFunction(function.Function):
     def forward_cpu(self, inputs):
         x, W = inputs[:2]
         if len(x.shape) == 2:
-            x1 = x[:, :, None, None]
+            x1 = x[:, :, None, None]   # 0-dimensional
+        elif len(x.shape) == 3:
+            x1 = x[:, :, :, None]      # 1-dimensional
         else:
             x1 = x
         b = inputs[2] if len(inputs) == 3 else None
@@ -71,7 +74,9 @@ class Convolution2DFunction(function.Function):
     def forward_gpu(self, inputs):
         x, W = inputs[:2]
         if len(x.shape) == 2:
-            x1 = x[:, :, None, None]
+            x1 = x[:, :, None, None]   # 0-dimensional
+        elif len(x.shape) == 3:
+            x1 = x[:, :, :, None]      # 1-dimensional
         else:
             x1 = x
         b = inputs[2] if len(inputs) == 3 else None
@@ -145,7 +150,9 @@ class Convolution2DFunction(function.Function):
     def backward_cpu(self, inputs, grad_outputs):
         x, W = inputs[:2]
         if len(x.shape) == 2:
-            x1 = x[:, :, None, None]
+            x1 = x[:, :, None, None]   # 0-dimensional
+        elif len(x.shape) == 3:
+            x1 = x[:, :, :, None]      # 1-dimensional
         else:
             x1 = x
         b = inputs[2] if len(inputs) == 3 else None
@@ -157,8 +164,8 @@ class Convolution2DFunction(function.Function):
         gcol = numpy.rollaxis(gcol, 3)
         gx = conv.col2im_cpu(gcol, self.sy, self.sx, self.ph, self.pw, h, w)
 
-        if len(x.shape) == 2:
-            gx = gx.reshape(*gx.shape[:2])
+        if len(x.shape) < 4:
+            gx = gx.reshape(*gx.shape[:len(x.shape)])
         if b is None:
             return gx, gW
         else:
@@ -168,7 +175,9 @@ class Convolution2DFunction(function.Function):
     def backward_gpu(self, inputs, grad_outputs):
         x, W = inputs[:2]
         if len(x.shape) == 2:
-            x1 = x[:, :, None, None]
+            x1 = x[:, :, None, None]   # 0-dimensional
+        elif len(x.shape) == 3:
+            x1 = x[:, :, :, None]      # 1-dimensional
         else:
             x1 = x
         b = inputs[2] if len(inputs) == 3 else None
@@ -265,8 +274,8 @@ class Convolution2DFunction(function.Function):
             if b is not None:
                 gb = gy.sum(axis=(0, 2, 3))
 
-        if len(x.shape) == 2:
-            gx = gx.reshape(*gx.shape[:2])
+        if len(x.shape) < 4:
+            gx = gx.reshape(*gx.shape[:len(x.shape)])
         if b is None:
             return gx, gW
         else:
